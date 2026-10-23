@@ -62,9 +62,13 @@ textarea{min-height:80px}
     <input id="vendOtro" class="hide" placeholder="Tu nombre" style="margin-top:8px">
     <label>Tipo</label>
     <div class="seg"><button id="tf" class="f on">Factura pendiente</button><button id="tn" class="n">NC pendiente</button></div>
-    <label>Cliente</label>
-    <input id="cli" list="dl" placeholder="Empezá a escribir el nombre..." autocomplete="off">
+    <label>Buscar cliente en la lista (opcional)</label>
+    <input id="bus" list="dl" placeholder="Escribí fantasía o razón social y elegí de la lista..." autocomplete="off">
     <datalist id="dl"></datalist>
+    <label>Nombre de fantasía</label>
+    <input id="cli" placeholder="Se completa solo al elegir de la lista. Si es nuevo, escribilo acá" autocomplete="off">
+    <label>Razón social</label>
+    <input id="rz" placeholder="Se completa solo al elegir de la lista. Se puede editar" autocomplete="off">
     <label>N° de factura / NC / pedido (si lo tenés)</label>
     <input id="comp" placeholder="Ej: A-0001-00001234">
     <label>Importe (opcional)</label>
@@ -101,7 +105,13 @@ function fillVend(sel) {
   $('vend').innerHTML = h;
   if (sel && D.vendedores.indexOf(sel) >= 0) $('vend').value = sel;
 }
-function fillCli() { $('dl').innerHTML = D.clientes.map(function (c) { return '<option value="' + esc(c) + '">'; }).join(''); }
+function cl(c) { return typeof c === 'string' ? { f: c, r: '' } : c; }
+function lbl(c) { c = cl(c); return c.r && c.r !== c.f ? c.f + ' | ' + c.r : c.f; }
+function fillCli() { $('dl').innerHTML = D.clientes.map(function (c) { return '<option value="' + esc(lbl(c)) + '">'; }).join(''); }
+function pick() {
+  var v = $('bus').value.trim(); if (!v) return;
+  for (var i = 0; i < D.clientes.length; i++) { var c = cl(D.clientes[i]); if (lbl(c) === v) { $('cli').value = c.f; $('rz').value = c.r; return; } }
+}
 function who() { var v = $('vend').value; return v === '__otro' ? $('vendOtro').value.trim() : v; }
 function show(n) { $('v1').classList.toggle('hide', n !== 1); $('v2').classList.toggle('hide', n !== 2); $('t1').classList.toggle('on', n === 1); $('t2').classList.toggle('on', n === 2); if (n === 2) refresh(); }
 function render() {
@@ -124,7 +134,7 @@ function render() {
   }).sort(function (a, b) { return dias(b.fecha) - dias(a.fecha); });
   $('list').innerHTML = arr.length ? arr.map(function (i) {
     var res = i.estado === 'Resuelto', f = i.tipo.indexOf('Factura') === 0, d = dias(i.fecha);
-    return '<div class="card it ' + (f ? 'f ' : '') + (res ? 'res ' : (d >= 3 ? 'old ' : '')) + '"><h3>' + esc(i.cli) + '</h3>' +
+    return '<div class="card it ' + (f ? 'f ' : '') + (res ? 'res ' : (d >= 3 ? 'old ' : '')) + '"><h3>' + esc(i.cli) + '</h3>' + (i.rz ? '<div class="m">' + esc(i.rz) + '</div>' : '') +
       '<div><span class="tag ' + (f ? 'f' : 'n') + '">' + esc(i.tipo) + '</span>' + (res ? '<span class="tag r">Resuelto ' + esc(i.fres) + '</span>' : '') + '</div>' +
       '<div class="m">' + esc(i.fecha) + ' · ' + esc(i.vend) + (res ? '' : ' · hace ' + d + ' día' + (d === 1 ? '' : 's')) + '</div>' +
       (i.comp ? '<div class="m">Comprobante: ' + esc(i.comp) + '</div>' : '') + (i.imp !== '' && i.imp != null ? '<div><b>' + fmt(i.imp) + '</b></div>' : '') +
@@ -143,6 +153,7 @@ function post(o) { return fetch(API, { method: 'POST', headers: { 'Content-Type'
 $('t1').onclick = function () { show(1); }; $('t2').onclick = function () { show(2); };
 $('tf').onclick = function () { tipo = 'Factura pendiente'; $('tf').classList.add('on'); $('tn').classList.remove('on'); };
 $('tn').onclick = function () { tipo = 'NC pendiente'; $('tn').classList.add('on'); $('tf').classList.remove('on'); };
+$('bus').oninput = pick; $('bus').onchange = pick;
 $('vend').onchange = function () { $('vendOtro').classList.toggle('hide', $('vend').value !== '__otro'); save(); };
 $('chT').onclick = function (e) { var t = e.target.getAttribute('data-t'); if (t) { fT = t; render(); } };
 $('chV').onclick = function (e) { var t = e.target.getAttribute('data-v'); if (t) { fV = t; render(); } };
@@ -156,12 +167,13 @@ $('list').onclick = function (e) {
 $('send').onclick = function () {
   var p = who(), cli = $('cli').value.trim(), m = $('msg');
   if (!p) { m.innerHTML = '<div class="msg er">Elegí tu nombre.</div>'; return; }
-  if (!cli) { m.innerHTML = '<div class="msg er">Falta el cliente.</div>'; return; }
+  var rz = $('rz').value.trim(); if (!cli && rz) cli = rz;
+  if (!cli) { m.innerHTML = '<div class="msg er">Falta el nombre de fantasía o la razón social.</div>'; return; }
   $('send').disabled = true; $('send').textContent = 'Guardando...';
-  post({ accion: 'pend_nuevo', vend: p, tipo: tipo, cli: cli, comp: $('comp').value, imp: $('imp').value, det: $('det').value }).then(function (j) {
+  post({ accion: 'pend_nuevo', vend: p, tipo: tipo, cli: cli, rz: rz, comp: $('comp').value, imp: $('imp').value, det: $('det').value }).then(function (j) {
     if (!j.ok) throw new Error(j.error || 'error');
     m.innerHTML = '<div class="msg ok">Guardado. Ya le avisamos al equipo por mail.</div>';
-    ['cli', 'comp', 'imp', 'det'].forEach(function (k) { $(k).value = ''; }); save(); refresh();
+    ['bus', 'cli', 'rz', 'comp', 'imp', 'det'].forEach(function (k) { $(k).value = ''; }); save(); refresh();
   }).catch(function () { m.innerHTML = '<div class="msg er">No se pudo guardar. Revisá la conexión y probá de nuevo.</div>'; })
     .then(function () { $('send').disabled = false; $('send').textContent = 'Guardar pendiente'; });
 };

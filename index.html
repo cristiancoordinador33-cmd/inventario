@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1c4573">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Inventario Alsina</title>
+<style>
+  :root { --azul:#1c4573; --azul2:#d9e8f7; --gris:#f3f5f8; --borde:#cfd6df; --ok:#1d7a46; --mal:#b3261e; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--gris); color:#1b1f24; padding-bottom:96px; }
+  header { background:var(--azul); color:#fff; padding:14px 16px; position:sticky; top:0; z-index:5; }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:2px 0 0; font-size:13px; opacity:.85; }
+  main { max-width:640px; margin:0 auto; padding:12px 16px; }
+  label.campo { display:block; font-size:13px; font-weight:600; margin:10px 0 4px; }
+  input[type=text], input[type=search], select, input.cant { width:100%; font-size:17px; padding:11px 12px; border:1px solid var(--borde); border-radius:10px; background:#fff; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 4px; }
+  .chip { border:1px solid var(--borde); background:#fff; border-radius:999px; padding:9px 14px; font-size:14px; cursor:pointer; }
+  .chip.on { background:var(--azul); color:#fff; border-color:var(--azul); }
+  .chip small { opacity:.75; }
+  .aviso { background:var(--azul2); border-radius:10px; padding:10px 12px; font-size:14px; margin:10px 0; }
+  .fam { font-weight:700; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--azul); margin:18px 0 6px; }
+  .fila { display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--borde); border-radius:12px; padding:8px 10px; margin-bottom:6px; }
+  .fila.lleno { border-color:var(--ok); background:#f2fbf6; }
+  .fila .nom { flex:1; font-size:15px; line-height:1.2; }
+  .fila .uni { font-size:12px; color:#5b6572; }
+  .fila input.cant { width:104px; text-align:right; padding:9px 10px; }
+  button { font-size:16px; border-radius:12px; border:0; padding:13px 16px; cursor:pointer; }
+  .sec { background:#fff; color:var(--azul); border:1px dashed var(--azul); width:100%; margin-top:14px; }
+  .barra { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--borde); padding:10px 16px calc(10px + env(safe-area-inset-bottom)); display:flex; gap:10px; align-items:center; }
+  .barra .res { flex:1; font-size:13px; color:#44505c; }
+  .barra button { background:var(--ok); color:#fff; font-weight:700; padding:13px 22px; }
+  .barra button:disabled { background:#9aa5b1; }
+  .nuevo { background:#fff; border:1px solid var(--borde); border-radius:12px; padding:10px; margin-bottom:8px; display:grid; grid-template-columns: 1fr 96px; gap:8px; }
+  .nuevo select { grid-column: 1; } .nuevo .x { grid-column:2; background:#fbe9e7; color:var(--mal); padding:9px; }
+  .msg { position:fixed; left:16px; right:16px; bottom:84px; background:#1b1f24; color:#fff; border-radius:12px; padding:12px 14px; font-size:15px; z-index:9; display:none; }
+  .msg.mal { background:var(--mal); } .msg.ok { background:var(--ok); }
+  .cargando { text-align:center; padding:40px 0; color:#5b6572; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Inventario Alsina</h1>
+  <p id="sub">Conteo cíclico · cargando…</p>
+</header>
+<main id="app"><div class="cargando">Cargando listado…</div></main>
+<div class="barra" id="barra" style="display:none">
+  <div class="res" id="res">0 productos con cantidad</div>
+  <button id="enviar">Enviar conteo</button>
+</div>
+<div class="msg" id="msg"></div>
+
+<script>
+// ==== CONFIGURACION ====
+var API = 'https://script.google.com/macros/s/AKfycbxn9SvvJKhxnTdDR6BpTRIQO3J5tKKP335VJDqRGlbFi7xtA5-KeVxRtb7OigGHc5uE/exec'; // se completa al publicar el backend
+// =======================
+
+var estado = { data: null, modo: 'semana', grupo: null, aleatorios: [], cant: {}, nuevos: [], nombre: '', buscar: '' };
+var LS = 'inv_alsina_v1';
+
+function guardarLocal() { try { localStorage.setItem(LS, JSON.stringify({ nombre: estado.nombre, cant: estado.cant, nuevos: estado.nuevos, modo: estado.modo, grupo: estado.grupo, aleatorios: estado.aleatorios, dia: hoy() })); } catch (e) {} }
+function leerLocal() { try { var s = JSON.parse(localStorage.getItem(LS) || 'null'); if (!s) return; estado.nombre = s.nombre || ''; if (s.dia === hoy()) { estado.cant = s.cant || {}; estado.nuevos = s.nuevos || []; estado.modo = s.modo || 'semana'; estado.grupo = s.grupo; estado.aleatorios = s.aleatorios || []; } } catch (e) {} }
+function hoy() { return new Date().toISOString().slice(0, 10); }
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function aviso(t, tipo) { var m = $('msg'); m.className = 'msg ' + (tipo || ''); m.textContent = t; m.style.display = 'block'; clearTimeout(aviso.t); aviso.t = setTimeout(function () { m.style.display = 'none'; }, 4500); }
+
+function cargar() {
+  fetch(API + '?action=lista&_=' + Date.now()).then(function (r) { return r.json(); }).then(function (d) {
+    estado.data = d; try { localStorage.setItem(LS + '_lista', JSON.stringify(d)); } catch (e) {}
+    iniciar();
+  }).catch(function () {
+    try { var d = JSON.parse(localStorage.getItem(LS + '_lista')); if (d) { estado.data = d; iniciar(); aviso('Sin conexión: uso el último listado guardado', 'mal'); return; } } catch (e) {}
+    $('app').innerHTML = '<div class="cargando">No se pudo cargar el listado. Revisá la conexión y recargá.</div>';
+  });
+}
+
+function iniciar() {
+  leerLocal();
+  var d = estado.data;
+  if (!estado.grupo) estado.grupo = d.semana;
+  if (estado.modo === 'aleatorio' && !estado.aleatorios.length) sortear();
+  $('sub').textContent = 'Conteo cíclico · esta semana toca: ' + d.grupos[d.semana - 1];
+  $('barra').style.display = 'flex';
+  dibujar();
+}
+
+function sortear() {
+  var p = estado.data.productos.slice();
+  for (var i = p.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = p[i]; p[i] = p[j]; p[j] = t; }
+  estado.aleatorios = p.slice(0, Math.min(estado.data.n, p.length)).map(function (x) { return x.id; });
+}
+
+function visibles() {
+  var d = estado.data, lista;
+  if (estado.modo === 'semana') lista = d.productos.filter(function (p) { return p.g === estado.grupo; });
+  else if (estado.modo === 'aleatorio') lista = d.productos.filter(function (p) { return estado.aleatorios.indexOf(p.id) >= 0; });
+  else lista = d.productos;
+  var q = estado.buscar.trim().toLowerCase();
+  if (q) lista = d.productos.filter(function (p) { return p.p.toLowerCase().indexOf(q) >= 0; });
+  return lista;
+}
+
+function dibujar() {
+  var d = estado.data, h = '';
+  h += '<label class="campo">¿Quién cuenta?</label><input type="text" id="nombre" placeholder="Tu nombre" value="' + esc(estado.nombre) + '">';
+  h += '<label class="campo">¿Qué se cuenta?</label><div class="chips">';
+  d.grupos.forEach(function (g, i) { h += '<div class="chip' + (estado.modo === 'semana' && estado.grupo === i + 1 ? ' on' : '') + '" data-g="' + (i + 1) + '">Sem. ' + (i + 1) + (d.semana === i + 1 ? ' ★' : '') + '<br><small>' + esc(g) + '</small></div>'; });
+  h += '<div class="chip' + (estado.modo === 'aleatorio' ? ' on' : '') + '" data-m="aleatorio">🎲 Aleatorio<br><small>' + d.n + ' productos</small></div>';
+  h += '<div class="chip' + (estado.modo === 'todos' ? ' on' : '') + '" data-m="todos">Todos<br><small>' + d.productos.length + ' productos</small></div></div>';
+  if (estado.modo === 'aleatorio') h += '<div class="aviso">Productos sorteados para contar hoy. <a href="#" id="resortear">Sortear de nuevo</a></div>';
+  h += '<input type="search" id="buscar" placeholder="Buscar producto…" value="' + esc(estado.buscar) + '" style="margin-top:8px">';
+  var fam = '';
+  visibles().forEach(function (p) {
+    if (p.f !== fam) { fam = p.f; h += '<div class="fam">' + esc(fam) + '</div>'; }
+    var v = estado.cant[p.id] || '';
+    h += '<div class="fila' + (v !== '' ? ' lleno' : '') + '"><div class="nom">' + esc(p.p) + '<div class="uni">' + esc(p.u) + '</div></div><input class="cant" data-id="' + p.id + '" inputmode="decimal" placeholder="—" value="' + esc(v) + '"></div>';
+  });
+  h += '<div class="fam">Productos que no están en la lista</div><div id="nuevos">';
+  estado.nuevos.forEach(function (n, i) {
+    h += '<div class="nuevo"><input type="text" data-n="' + i + '" data-c="p" placeholder="Producto" value="' + esc(n.p) + '"><input class="cant" data-n="' + i + '" data-c="q" inputmode="decimal" placeholder="Cant." value="' + esc(n.q) + '"><select data-n="' + i + '" data-c="u">' + ['kg', 'unid', 'cajón', 'rueda'].map(function (u) { return '<option' + (n.u === u ? ' selected' : '') + '>' + u + '</option>'; }).join('') + '</select><button class="x" data-del="' + i + '">Quitar</button></div>';
+  });
+  h += '</div><button class="sec" id="agregar">+ Agregar un producto que no está</button>';
+  $('app').innerHTML = h;
+  enlazar(); resumen();
+}
+
+function enlazar() {
+  $('nombre').oninput = function (e) { estado.nombre = e.target.value; guardarLocal(); };
+  $('buscar').oninput = function (e) { estado.buscar = e.target.value; var pos = e.target.selectionStart; dibujar(); var b = $('buscar'); b.focus(); try { b.setSelectionRange(pos, pos); } catch (x) {} };
+  Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (c) {
+    c.onclick = function () {
+      if (c.dataset.g) { estado.modo = 'semana'; estado.grupo = +c.dataset.g; }
+      else { estado.modo = c.dataset.m; if (estado.modo === 'aleatorio') sortear(); }
+      estado.buscar = ''; guardarLocal(); dibujar();
+    };
+  });
+  var rs = $('resortear'); if (rs) rs.onclick = function (e) { e.preventDefault(); sortear(); guardarLocal(); dibujar(); };
+  Array.prototype.forEach.call(document.querySelectorAll('input.cant[data-id]'), function (i) {
+    i.oninput = function () { estado.cant[i.dataset.id] = i.value; i.parentNode.className = 'fila' + (i.value !== '' ? ' lleno' : ''); guardarLocal(); resumen(); };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-n]'), function (i) {
+    i.oninput = i.onchange = function () { estado.nuevos[+i.dataset.n][i.dataset.c] = i.value; guardarLocal(); resumen(); };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-del]'), function (b) { b.onclick = function () { estado.nuevos.splice(+b.dataset.del, 1); guardarLocal(); dibujar(); }; });
+  $('agregar').onclick = function () { estado.nuevos.push({ p: '', u: 'kg', q: '' }); guardarLocal(); dibujar(); };
+}
+
+function num(v) { var n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? null : n; }
+function armar() {
+  var items = [], d = estado.data;
+  d.productos.forEach(function (p) { var q = estado.cant[p.id]; if (q !== undefined && String(q).trim() !== '') items.push({ f: p.f, p: p.p, u: p.u, q: String(q).trim() }); });
+  var nuevos = estado.nuevos.filter(function (n) { return n.p.trim() && String(n.q).trim() !== ''; }).map(function (n) { return { p: n.p.trim(), u: n.u, q: String(n.q).trim() }; });
+  return { items: items, nuevos: nuevos };
+}
+function resumen() { var a = armar(); $('res').textContent = (a.items.length + a.nuevos.length) + ' productos con cantidad'; }
+
+$('enviar').onclick = function () {
+  var a = armar();
+  if (!estado.nombre.trim()) { aviso('Poné tu nombre arriba', 'mal'); return; }
+  if (!a.items.length && !a.nuevos.length) { aviso('Cargá al menos una cantidad', 'mal'); return; }
+  for (var i = 0; i < a.items.length; i++) if (num(a.items[i].q) === null) { aviso('Revisá la cantidad de ' + a.items[i].p, 'mal'); return; }
+  var grupoTxt = estado.modo === 'semana' ? 'Semana ' + estado.grupo + ' - ' + estado.data.grupos[estado.grupo - 1] : (estado.modo === 'aleatorio' ? 'Aleatorio' : 'Todos');
+  var payload = { nombre: estado.nombre.trim(), modo: estado.modo, grupo: grupoTxt, items: a.items, nuevos: a.nuevos };
+  var b = $('enviar'); b.disabled = true; b.textContent = 'Enviando…';
+  fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) })
+    .then(function (r) { return r.json(); })
+    .then(function (r) {
+      if (!r.ok) throw new Error(r.error || 'error');
+      estado.cant = {}; estado.nuevos = []; guardarLocal();
+      aviso('✔ Conteo enviado (' + r.filas + ' filas). ¡Gracias!', 'ok'); dibujar();
+    })
+    .catch(function () { aviso('No se pudo enviar. Tus cantidades quedan guardadas en el celu; probá de nuevo con conexión.', 'mal'); })
+    .then(function () { b.disabled = false; b.textContent = 'Enviar conteo'; });
+};
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+cargar();
+</script>
+</body>
+</html>

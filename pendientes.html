@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pendientes Alsina</title>
+<link rel="manifest" href="manifest-pend.json">
+<link rel="icon" href="icon.svg">
+<meta name="theme-color" content="#1c4573">
+<style>
+:root{--az:#1c4573;--bg:#f3f5f8;--tx:#1d2733;--mu:#667386;--ln:#d9dfe7;--ok:#1d7a46;--am:#b7791f;--ro:#c0392b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding-bottom:40px}
+header{background:var(--az);color:#fff;padding:14px 16px;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:18px}
+header small{opacity:.85}
+.tabs{display:flex;gap:8px;padding:12px 16px 0}
+.tabs button{flex:1;padding:12px;border:1px solid var(--ln);background:#fff;border-radius:10px;font-weight:600;font-size:15px;color:var(--az)}
+.tabs button.on{background:var(--az);color:#fff;border-color:var(--az)}
+main{padding:12px 16px;max-width:720px;margin:0 auto}
+.card{background:#fff;border:1px solid var(--ln);border-radius:12px;padding:14px;margin-bottom:12px}
+label{display:block;font-weight:600;font-size:14px;margin:12px 0 4px}
+input,select,textarea{width:100%;padding:12px;border:1px solid var(--ln);border-radius:10px;font:inherit;background:#fff}
+textarea{min-height:80px}
+.seg{display:flex;gap:8px}
+.seg button{flex:1;padding:14px 8px;border:2px solid var(--ln);background:#fff;border-radius:10px;font-weight:700;font-size:15px}
+.seg button.on.f{border-color:var(--az);background:#e8f0f9;color:var(--az)}
+.seg button.on.n{border-color:var(--am);background:#fdf3e0;color:var(--am)}
+.btn{display:block;width:100%;padding:15px;border:0;border-radius:12px;background:var(--ok);color:#fff;font-weight:700;font-size:17px;margin-top:16px}
+.btn:disabled{opacity:.5}
+.btn.sm{display:inline-block;width:auto;padding:8px 14px;font-size:14px;margin:0;background:var(--az)}
+.msg{padding:10px 12px;border-radius:10px;margin-top:12px;font-size:14px}
+.msg.ok{background:#e3f4ea;color:#14532d}.msg.er{background:#fdeaea;color:#7f1d1d}
+.stats{display:flex;gap:8px;margin-bottom:12px}
+.stat{flex:1;background:#fff;border:1px solid var(--ln);border-radius:12px;padding:10px;text-align:center}
+.stat b{display:block;font-size:24px}
+.stat span{font-size:12px;color:var(--mu)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chips button{padding:7px 12px;border:1px solid var(--ln);background:#fff;border-radius:99px;font-size:13px}
+.chips button.on{background:var(--az);color:#fff;border-color:var(--az)}
+.it{border-left:6px solid var(--am)}
+.it.f{border-left-color:var(--az)}
+.it.old{border-left-color:var(--ro)}
+.it.res{opacity:.6;border-left-color:var(--ok)}
+.it h3{margin:0 0 2px;font-size:16px}
+.it .m{color:var(--mu);font-size:13px}
+.tag{display:inline-block;font-size:12px;font-weight:700;border-radius:6px;padding:2px 8px;margin-right:6px}
+.tag.f{background:#e8f0f9;color:var(--az)}.tag.n{background:#fdf3e0;color:var(--am)}.tag.r{background:#e3f4ea;color:var(--ok)}
+.off{background:#fff3cd;color:#7a5b00;padding:8px 16px;font-size:13px;display:none}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header><h1>Pendientes de facturas y NC</h1><small>Alsina mayorista · cargá lo que nos deben o les debemos a los clientes</small></header>
+<div class="off" id="off">Sin conexión: se muestra la última lista guardada. No se puede cargar hasta tener internet.</div>
+<div class="tabs"><button id="t1" class="on">Cargar</button><button id="t2">Pendientes</button></div>
+<main>
+<section id="v1">
+  <div class="card">
+    <label>¿Quién carga?</label>
+    <select id="vend"></select>
+    <input id="vendOtro" class="hide" placeholder="Tu nombre" style="margin-top:8px">
+    <label>Tipo</label>
+    <div class="seg"><button id="tf" class="f on">Factura pendiente</button><button id="tn" class="n">NC pendiente</button></div>
+    <label>Cliente</label>
+    <input id="cli" list="dl" placeholder="Empezá a escribir el nombre..." autocomplete="off">
+    <datalist id="dl"></datalist>
+    <label>N° de factura / NC / pedido (si lo tenés)</label>
+    <input id="comp" placeholder="Ej: A-0001-00001234">
+    <label>Importe (opcional)</label>
+    <input id="imp" inputmode="decimal" placeholder="Ej: 125000,50">
+    <label>Detalle / motivo</label>
+    <textarea id="det" placeholder="Qué falta emitir y por qué (ej: faltante de 10 kg de nalga, entregado el 20/10)"></textarea>
+    <button class="btn" id="send">Guardar pendiente</button>
+    <div id="msg"></div>
+  </div>
+</section>
+<section id="v2" class="hide">
+  <div class="stats"><div class="stat"><b id="sTot">0</b><span>abiertos</span></div><div class="stat"><b id="sF">0</b><span>facturas</span></div><div class="stat"><b id="sN">0</b><span>NC</span></div><div class="stat"><b id="sOld">0</b><span>+3 días</span></div></div>
+  <div class="chips" id="chT"></div>
+  <div class="chips" id="chV"></div>
+  <div id="list"></div>
+</section>
+</main>
+<script>
+var API = 'https://script.google.com/macros/s/AKfycbxn9SvvJKhxnTdDR6BpTRIQO3J5tKKP335VJDqRGlbFi7xtA5-KeVxRtb7OigGHc5uE/exec';
+var KEY = 'pend_alsina_v1';
+var D = { items: [], clientes: [], vendedores: ['Diego', 'Lucas', 'Anabel'] };
+var tipo = 'Factura pendiente', fT = 'abiertos', fV = 'Todos';
+function $(i) { return document.getElementById(i); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function save() { try { localStorage.setItem(KEY, JSON.stringify({ D: D, v: $('vend').value })); } catch (e) {} }
+function load() { try { var s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) { D = s.D || D; return s.v; } } catch (e) {} return ''; }
+function parseF(s) { var p = String(s).split('/'); return p.length === 3 ? new Date(+p[2], +p[1] - 1, +p[0]) : null; }
+function dias(s) { var d = parseF(s); if (!d) return 0; var h = new Date(); h.setHours(0, 0, 0, 0); return Math.round((h - d) / 86400000); }
+function fmt(n) { return n === '' || n == null ? '' : '$ ' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fillVend(sel) {
+  var h = '<option value="">Elegí tu nombre</option>';
+  D.vendedores.forEach(function (v) { h += '<option>' + esc(v) + '</option>'; });
+  h += '<option value="__otro">Otro...</option>';
+  $('vend').innerHTML = h;
+  if (sel && D.vendedores.indexOf(sel) >= 0) $('vend').value = sel;
+}
+function fillCli() { $('dl').innerHTML = D.clientes.map(function (c) { return '<option value="' + esc(c) + '">'; }).join(''); }
+function who() { var v = $('vend').value; return v === '__otro' ? $('vendOtro').value.trim() : v; }
+function show(n) { $('v1').classList.toggle('hide', n !== 1); $('v2').classList.toggle('hide', n !== 2); $('t1').classList.toggle('on', n === 1); $('t2').classList.toggle('on', n === 2); if (n === 2) refresh(); }
+function render() {
+  var ab = D.items.filter(function (i) { return i.estado !== 'Resuelto'; });
+  $('sTot').textContent = ab.length;
+  $('sF').textContent = ab.filter(function (i) { return i.tipo.indexOf('Factura') === 0; }).length;
+  $('sN').textContent = ab.filter(function (i) { return i.tipo.indexOf('NC') === 0; }).length;
+  $('sOld').textContent = ab.filter(function (i) { return dias(i.fecha) >= 3; }).length;
+  var tl = ['abiertos', 'Facturas', 'NC', 'resueltos'];
+  $('chT').innerHTML = tl.map(function (t) { return '<button data-t="' + t + '" class="' + (t === fT ? 'on' : '') + '">' + t + '</button>'; }).join('');
+  var vl = ['Todos'].concat(D.vendedores);
+  $('chV').innerHTML = vl.map(function (t) { return '<button data-v="' + t + '" class="' + (t === fV ? 'on' : '') + '">' + t + '</button>'; }).join('');
+  var arr = D.items.filter(function (i) {
+    var res = i.estado === 'Resuelto';
+    if (fT === 'resueltos') { if (!res) return false; } else if (res) return false;
+    if (fT === 'Facturas' && i.tipo.indexOf('Factura') !== 0) return false;
+    if (fT === 'NC' && i.tipo.indexOf('NC') !== 0) return false;
+    if (fV !== 'Todos' && i.vend !== fV) return false;
+    return true;
+  }).sort(function (a, b) { return dias(b.fecha) - dias(a.fecha); });
+  $('list').innerHTML = arr.length ? arr.map(function (i) {
+    var res = i.estado === 'Resuelto', f = i.tipo.indexOf('Factura') === 0, d = dias(i.fecha);
+    return '<div class="card it ' + (f ? 'f ' : '') + (res ? 'res ' : (d >= 3 ? 'old ' : '')) + '"><h3>' + esc(i.cli) + '</h3>' +
+      '<div><span class="tag ' + (f ? 'f' : 'n') + '">' + esc(i.tipo) + '</span>' + (res ? '<span class="tag r">Resuelto ' + esc(i.fres) + '</span>' : '') + '</div>' +
+      '<div class="m">' + esc(i.fecha) + ' · ' + esc(i.vend) + (res ? '' : ' · hace ' + d + ' día' + (d === 1 ? '' : 's')) + '</div>' +
+      (i.comp ? '<div class="m">Comprobante: ' + esc(i.comp) + '</div>' : '') + (i.imp !== '' && i.imp != null ? '<div><b>' + fmt(i.imp) + '</b></div>' : '') +
+      (i.det ? '<div style="margin-top:6px">' + esc(i.det) + '</div>' : '') +
+      (res ? '' : '<div style="margin-top:10px"><button class="btn sm" data-r="' + esc(i.id) + '">Marcar como resuelto</button></div>') + '</div>';
+  }).join('') : '<div class="card m">No hay nada en esta lista.</div>';
+}
+function refresh() {
+  return fetch(API + '?accion=pend').then(function (r) { return r.json(); }).then(function (j) {
+    if (!j.ok) throw new Error(j.error || 'error');
+    D = { items: j.items, clientes: j.clientes, vendedores: j.vendedores }; $('off').style.display = 'none';
+    var cur = $('vend').value; fillVend(cur); fillCli(); save(); render();
+  }).catch(function () { $('off').style.display = 'block'; render(); });
+}
+function post(o) { return fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(o) }).then(function (r) { return r.json(); }); }
+$('t1').onclick = function () { show(1); }; $('t2').onclick = function () { show(2); };
+$('tf').onclick = function () { tipo = 'Factura pendiente'; $('tf').classList.add('on'); $('tn').classList.remove('on'); };
+$('tn').onclick = function () { tipo = 'NC pendiente'; $('tn').classList.add('on'); $('tf').classList.remove('on'); };
+$('vend').onchange = function () { $('vendOtro').classList.toggle('hide', $('vend').value !== '__otro'); save(); };
+$('chT').onclick = function (e) { var t = e.target.getAttribute('data-t'); if (t) { fT = t; render(); } };
+$('chV').onclick = function (e) { var t = e.target.getAttribute('data-v'); if (t) { fV = t; render(); } };
+$('list').onclick = function (e) {
+  var id = e.target.getAttribute('data-r'); if (!id) return;
+  var p = who(); if (!p) { alert('Elegí tu nombre en la pestaña Cargar'); return; }
+  if (!confirm('¿Marcar como resuelto?')) return;
+  e.target.disabled = true; e.target.textContent = 'Guardando...';
+  post({ accion: 'pend_resolver', id: id, por: p }).then(function (j) { if (!j.ok) throw new Error(j.error); return refresh(); }).catch(function () { alert('No se pudo guardar. Probá de nuevo.'); render(); });
+};
+$('send').onclick = function () {
+  var p = who(), cli = $('cli').value.trim(), m = $('msg');
+  if (!p) { m.innerHTML = '<div class="msg er">Elegí tu nombre.</div>'; return; }
+  if (!cli) { m.innerHTML = '<div class="msg er">Falta el cliente.</div>'; return; }
+  $('send').disabled = true; $('send').textContent = 'Guardando...';
+  post({ accion: 'pend_nuevo', vend: p, tipo: tipo, cli: cli, comp: $('comp').value, imp: $('imp').value, det: $('det').value }).then(function (j) {
+    if (!j.ok) throw new Error(j.error || 'error');
+    m.innerHTML = '<div class="msg ok">Guardado. Ya le avisamos al equipo por mail.</div>';
+    ['cli', 'comp', 'imp', 'det'].forEach(function (k) { $(k).value = ''; }); save(); refresh();
+  }).catch(function () { m.innerHTML = '<div class="msg er">No se pudo guardar. Revisá la conexión y probá de nuevo.</div>'; })
+    .then(function () { $('send').disabled = false; $('send').textContent = 'Guardar pendiente'; });
+};
+var sel = load(); fillVend(sel); fillCli(); render(); refresh();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+</script>
+</body>
+</html>

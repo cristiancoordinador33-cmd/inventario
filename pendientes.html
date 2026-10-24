@@ -61,7 +61,7 @@ textarea{min-height:80px}
     <select id="vend"></select>
     <input id="vendOtro" class="hide" placeholder="Tu nombre" style="margin-top:8px">
     <label>Tipo</label>
-    <div class="seg"><button id="tf" class="f on">Factura pendiente</button><button id="tn" class="n">NC pendiente</button></div>
+    <select id="tsel"><option>Factura pendiente</option><option>NC pendiente</option><option>Diferencia de precio</option><option>Diferencia de peso</option><option>Tarea administrativa</option></select>
     <label>Buscar cliente en la lista (opcional)</label>
     <input id="bus" list="dl" placeholder="Escribí fantasía o razón social y elegí de la lista..." autocomplete="off">
     <datalist id="dl"></datalist>
@@ -120,7 +120,7 @@ function render() {
   $('sF').textContent = ab.filter(function (i) { return i.tipo.indexOf('Factura') === 0; }).length;
   $('sN').textContent = ab.filter(function (i) { return i.tipo.indexOf('NC') === 0; }).length;
   $('sOld').textContent = ab.filter(function (i) { return dias(i.fecha) >= 3; }).length;
-  var tl = ['abiertos', 'Facturas', 'NC', 'resueltos'];
+  var tl = ['abiertos', 'Facturas', 'NC', 'Otros', 'resueltos'];
   $('chT').innerHTML = tl.map(function (t) { return '<button data-t="' + t + '" class="' + (t === fT ? 'on' : '') + '">' + t + '</button>'; }).join('');
   var vl = ['Todos'].concat(D.vendedores);
   $('chV').innerHTML = vl.map(function (t) { return '<button data-v="' + t + '" class="' + (t === fV ? 'on' : '') + '">' + t + '</button>'; }).join('');
@@ -129,6 +129,7 @@ function render() {
     if (fT === 'resueltos') { if (!res) return false; } else if (res) return false;
     if (fT === 'Facturas' && i.tipo.indexOf('Factura') !== 0) return false;
     if (fT === 'NC' && i.tipo.indexOf('NC') !== 0) return false;
+    if (fT === 'Otros' && (i.tipo.indexOf('Factura') === 0 || i.tipo.indexOf('NC') === 0)) return false;
     if (fV !== 'Todos' && i.vend !== fV) return false;
     return true;
   }).sort(function (a, b) { return dias(b.fecha) - dias(a.fecha); });
@@ -151,8 +152,7 @@ function refresh() {
 }
 function post(o) { return fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(o) }).then(function (r) { return r.json(); }); }
 $('t1').onclick = function () { show(1); }; $('t2').onclick = function () { show(2); };
-$('tf').onclick = function () { tipo = 'Factura pendiente'; $('tf').classList.add('on'); $('tn').classList.remove('on'); };
-$('tn').onclick = function () { tipo = 'NC pendiente'; $('tn').classList.add('on'); $('tf').classList.remove('on'); };
+$('tsel').onchange = function () { tipo = this.value; };
 $('bus').oninput = pick; $('bus').onchange = pick;
 $('vend').onchange = function () { $('vendOtro').classList.toggle('hide', $('vend').value !== '__otro'); save(); };
 $('chT').onclick = function (e) { var t = e.target.getAttribute('data-t'); if (t) { fT = t; render(); } };
